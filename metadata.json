@@ -1,0 +1,6 @@
+{
+  "name": "Deroua Services",
+  "description": "منصة ودليل خدمات الدروة للحرفيين، العيادات، الطوارئ وإدارة الطلبات",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
