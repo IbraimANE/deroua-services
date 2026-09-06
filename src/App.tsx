@@ -15,6 +15,7 @@ import { NewProviderModal } from './components/NewProviderModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { WelcomeAuthScreen } from './components/WelcomeAuthScreen';
 import { CheckCircle2, Info, Lock, BookOpen } from 'lucide-react';
+import { pb } from './lib/pb';
 
 export default function App() {
   // Persistence for Providers with automatic cleanup of old mock data
@@ -114,6 +115,24 @@ export default function App() {
 
   // Sync to local storage
   useEffect(() => {
+    const fetchFromPB = async () => {
+      try {
+        const pbProviders = await pb.collection('providers').getFullList({ sort: '-created' });
+        if (pbProviders.length > 0) setProviders(pbProviders as unknown as Provider[]);
+
+        const pbDirectory = await pb.collection('directory').getFullList({ sort: '-created' });
+        if (pbDirectory.length > 0) setDirectoryItems(pbDirectory as unknown as DirectoryItem[]);
+
+        const pbRequests = await pb.collection('service_requests').getFullList({ sort: '-created' });
+        if (pbRequests.length > 0) setServiceRequests(pbRequests as unknown as ServiceRequest[]);
+      } catch (err) {
+        console.log("PocketBase is not connected or tables not created yet. Using local storage.");
+      }
+    };
+    fetchFromPB();
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('deroua_providers', JSON.stringify(providers));
   }, [providers]);
 
@@ -142,7 +161,7 @@ export default function App() {
   };
 
   // Request creation
-  const handleSubmitServiceRequest = (details: {
+  const handleSubmitServiceRequest = async (details: {
     clientName: string;
     clientPhone: string;
     clientLocation: string;
@@ -164,7 +183,13 @@ export default function App() {
       description: details.description
     };
 
-    setServiceRequests(prev => [newReq, ...prev]);
+    try {
+      const record = await pb.collection('service_requests').create(newReq);
+      setServiceRequests(prev => [record as unknown as ServiceRequest, ...prev]);
+    } catch (e) {
+      setServiceRequests(prev => [newReq, ...prev]);
+    }
+    
     showToast(
       language === 'ar' 
         ? `تم إرسال طلبك إلى ${selectedProviderForRequest.businessName} بنجاح!` 
@@ -261,8 +286,13 @@ export default function App() {
     setDirectoryItems(prev => prev.map(d => d.id === updated.id ? updated : d));
   };
 
-  const handleAddDirectoryItem = (newItem: DirectoryItem) => {
-    setDirectoryItems(prev => [newItem, ...prev]);
+  const handleAddDirectoryItem = async (newItem: DirectoryItem) => {
+    try {
+      const record = await pb.collection('directory').create(newItem);
+      setDirectoryItems(prev => [record as unknown as DirectoryItem, ...prev]);
+    } catch (err) {
+      setDirectoryItems(prev => [newItem, ...prev]);
+    }
     showToast(language === 'ar' ? 'تمت إضافة جهة الاتصال إلى دليل الدروة' : 'Ajouté à l\'annuaire');
   };
 
@@ -290,8 +320,13 @@ export default function App() {
   };
 
   // Self-register new provider
-  const handleRegisterNewProvider = (newProv: Provider) => {
-    setProviders(prev => [newProv, ...prev]);
+  const handleRegisterNewProvider = async (newProv: Provider) => {
+    try {
+      const record = await pb.collection('providers').create(newProv);
+      setProviders(prev => [record as unknown as Provider, ...prev]);
+    } catch (err) {
+      setProviders(prev => [newProv, ...prev]);
+    }
   };
 
   // Role Switch Handler with Admin Protection
@@ -395,9 +430,17 @@ export default function App() {
           onLanguageToggle={handleToggleLanguage}
           onLoginSuccess={handleAuthSuccess}
           onOpenArtisanJoin={() => setIsNewJoinOpen(true)}
+          onOpenDirectory={() => setIsDirectoryOpen(true)}
           onRegisterEstablishment={handleRegisterEstablishment}
           directoryItems={directoryItems}
           onContinueAsGuest={handleContinueAsGuest}
+        />
+
+        <DirectoryModal
+          isOpen={isDirectoryOpen}
+          onClose={() => setIsDirectoryOpen(false)}
+          language={language}
+          directoryItems={directoryItems}
         />
 
         <NewProviderModal
@@ -548,39 +591,30 @@ export default function App() {
         )}
       </main>
 
-      {/* Footer - Only comprehensive Deroua directory as requested */}
-      <footer className="bg-white border-t border-slate-200 mt-auto py-5 text-center text-xs text-slate-500 mb-14 sm:mb-0">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      {/* Footer inside the application */}
+      <footer className="bg-white border-t border-slate-200 mt-auto py-6 text-center text-xs text-slate-500">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="font-extrabold text-slate-900 text-sm">خدمات الدروة</span>
+            <span className="font-extrabold text-slate-900">خدمات الدروة</span>
             <span>•</span>
             <span>Deroua Services © {new Date().getFullYear()}</span>
           </div>
 
-          <div>
-            <button 
-              onClick={() => setIsDirectoryOpen(true)} 
-              id="footer-directory-btn"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white text-xs font-black rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer"
-            >
-              <BookOpen className="w-4 h-4 text-teal-100" />
-              <span>{language === 'ar' ? 'دليل الدروة الشامل' : 'Annuaire complet de Deroua'}</span>
+          <div className="flex items-center gap-4 text-xs font-semibold text-slate-600">
+            <button onClick={() => setIsDirectoryOpen(true)} className="hover:text-teal-700 cursor-pointer transition-colors">
+              {language === 'ar' ? 'دليل الطوارئ والعيادات' : 'Urgences & Cliniques'}
+            </button>
+            <span>•</span>
+            <button onClick={() => setIsComplaintsOpen(true)} className="hover:text-teal-700 cursor-pointer transition-colors">
+              {language === 'ar' ? 'شكايات ومقترحات' : 'Réclamations & Suggestions'}
+            </button>
+            <span>•</span>
+            <button onClick={() => setIsNewJoinOpen(true)} className="hover:text-teal-700 text-teal-700 font-bold cursor-pointer transition-colors">
+              {language === 'ar' ? 'تسجيل حرفي جديد' : 'Rejoindre en tant qu\'artisan'}
             </button>
           </div>
         </div>
       </footer>
-
-      {/* Mobile Sticky Bottom Access for the Comprehensive Directory */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200 p-2.5 shadow-lg">
-        <button
-          onClick={() => setIsDirectoryOpen(true)}
-          id="mobile-bottom-directory-btn"
-          className="w-full py-2.5 px-4 bg-teal-700 active:bg-teal-800 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-sm cursor-pointer"
-        >
-          <BookOpen className="w-4 h-4" />
-          <span>{language === 'ar' ? 'دليل الدروة الشامل' : 'Annuaire complet de Deroua'}</span>
-        </button>
-      </div>
 
       {/* Global Modals */}
       <DirectoryModal

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Language } from '../types';
 import { t } from '../translations';
 import { X, Mail, Send, CheckCircle2 } from 'lucide-react';
+import { pb } from '../lib/pb';
 
 interface ComplaintsModalProps {
   isOpen: boolean;
@@ -21,14 +22,25 @@ export const ComplaintsModal: React.FC<ComplaintsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const email = 'derouaservices@gmail.com';
-    const emailSubject = encodeURIComponent(`شكاية / اقتراح من تطبيق Deroua Services: ${subject}`);
-    const emailBody = encodeURIComponent(
-      `من: ${senderContact}\n\nالموضوع: ${subject}\n\nالتفاصيل:\n${details}\n\n--\nمرسل عبر منصة خدمات الدروة الويب`
-    );
-    window.open(`mailto:${email}?subject=${emailSubject}&body=${emailBody}`, '_blank');
+    
+    try {
+      await pb.collection('complaints').create({
+        subject,
+        details,
+        senderContact
+      });
+    } catch (err) {
+      // Fallback to mailto if PocketBase is not connected
+      const email = 'derouaservices@gmail.com';
+      const emailSubject = encodeURIComponent(`شكاية / اقتراح من تطبيق Deroua Services: ${subject}`);
+      const emailBody = encodeURIComponent(
+        `من: ${senderContact}\n\nالموضوع: ${subject}\n\nالتفاصيل:\n${details}\n\n--\nمرسل عبر منصة خدمات الدروة الويب`
+      );
+      window.open(`mailto:${email}?subject=${emailSubject}&body=${emailBody}`, '_blank');
+    }
+    
     setSentSuccess(true);
     setTimeout(() => {
       setSentSuccess(false);

@@ -23,7 +23,8 @@ import {
   Trash2,
   Clock,
   MapPin,
-  Check
+  Check,
+  BookOpen
 } from 'lucide-react';
 
 interface WelcomeAuthScreenProps {
@@ -35,6 +36,7 @@ interface WelcomeAuthScreenProps {
     establishmentId?: string;
   }) => void;
   onOpenArtisanJoin: () => void;
+  onOpenDirectory?: () => void;
   onRegisterEstablishment?: (item: DirectoryItem) => void;
   directoryItems?: DirectoryItem[];
   language: Language;
@@ -94,6 +96,7 @@ const INITIAL_LAB_TESTS: StandardTestItem[] = [
 export const WelcomeAuthScreen: React.FC<WelcomeAuthScreenProps> = ({
   onLoginSuccess,
   onOpenArtisanJoin,
+  onOpenDirectory,
   onRegisterEstablishment,
   directoryItems = [],
   language,
@@ -1368,9 +1371,19 @@ export const WelcomeAuthScreen: React.FC<WelcomeAuthScreenProps> = ({
 
       </div>
 
-      {/* Subtle Footer info */}
-      <div className="max-w-md w-full mx-auto text-center z-10 text-[11px] text-slate-400">
-        <p>Deroua Services • الدروة - منصة موثوقة لخدمات القرب</p>
+      {/* Bottom of Login Screen - ONLY Deroua Directory as explicitly requested */}
+      <div className="max-w-md w-full mx-auto text-center z-10 py-3">
+        {onOpenDirectory && (
+          <button
+            type="button"
+            onClick={onOpenDirectory}
+            id="welcome-open-directory-btn"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-teal-800 hover:bg-teal-900 active:bg-teal-950 text-white text-xs font-black shadow-md shadow-teal-900/10 border border-teal-700 transition-all hover:scale-[1.02] cursor-pointer"
+          >
+            <BookOpen className="w-4 h-4 text-teal-200" />
+            <span>{language === 'ar' ? 'تصفح دليل الدروة الشامل (العيادات، الصيدليات والمختبرات)' : 'Consulter l\'annuaire complet de Deroua'}</span>
+          </button>
+        )}
       </div>
 
     </div>
